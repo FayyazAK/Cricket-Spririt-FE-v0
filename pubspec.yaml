@@ -1,0 +1,30 @@
+name: crcicket_spirit_v0
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^6.1.0
+  http: ^1.2.0
+  image_cropper: ^8.0.2
+  image_picker: ^1.1.2
+  intl_phone_field: ^3.2.0
+  mime: ^2.0.0
+  http_parser: ^4.1.2
+  permission_handler: ^11.3.1
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/cities_by_province.json
