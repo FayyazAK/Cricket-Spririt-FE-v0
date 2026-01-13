@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../app/themes/themes.dart';
 import '../../models/player_model.dart';
 import '../../services/api/api_service.dart';
+import 'player_view_page.dart';
 
 class AllPlayersView extends StatefulWidget {
   const AllPlayersView({super.key});
@@ -604,6 +605,15 @@ class _AllPlayersViewState extends State<AllPlayersView> {
                                   child: _PlayerCard(
                                     player: p,
                                     photoUrl: _normalizeImageUrl(p.profilePicture),
+                                    onTap: () {
+                                      if (p.id != null && p.id!.isNotEmpty) {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => PlayerViewPage(playerId: p.id!),
+                                          ),
+                                        );
+                                      }
+                                    },
                                   ),
                                 );
                               },
@@ -620,10 +630,12 @@ class _PlayerCard extends StatelessWidget {
   const _PlayerCard({
     required this.player,
     required this.photoUrl,
+    this.onTap,
   });
 
   final Player player;
   final String? photoUrl;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -631,7 +643,9 @@ class _PlayerCard extends StatelessWidget {
     final name = '${player.firstName} ${player.lastName}'.trim();
     final bowling = player.bowlingTypes;
 
-    return Card(
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
       elevation: 1,
       shadowColor: Colors.black12,
       color: CricketSpiritColors.card,
@@ -736,6 +750,7 @@ class _PlayerCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

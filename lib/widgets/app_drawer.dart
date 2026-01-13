@@ -8,7 +8,9 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isPlayerRole = (appState.currentUser?.role ?? '').toUpperCase() == 'PLAYER';
+    final user = appState.currentUser;
+    final isPlayerRole = (user?.role ?? '').toUpperCase() == 'PLAYER';
+    final hasOwnedClubs = user?.hasOwnedClubs ?? false;
 
     return Drawer(
       backgroundColor: CricketSpiritColors.background,
@@ -80,11 +82,18 @@ class AppDrawer extends StatelessWidget {
 
           // Clubs Section
           _buildSectionHeader(context, 'CLUBS'),
+          if (!hasOwnedClubs)
+            _buildDrawerItem(
+              context,
+              icon: Icons.add_business_outlined,
+              title: 'Register a Club',
+              route: '/register-club',
+            ),
           _buildDrawerItem(
             context,
-            icon: Icons.add_business_outlined,
-            title: 'Register a Club',
-            route: '/register-club',
+            icon: Icons.home_work_outlined,
+            title: 'My Clubs',
+            route: '/my-clubs',
           ),
           _buildDrawerItem(
             context,

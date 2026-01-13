@@ -519,6 +519,187 @@ class ApiService {
     }
   }
 
+  // ==================== CLUB APIs ====================
+
+  /// Upload club profile picture
+  /// POST /clubs/upload-profile-picture
+  Future<Map<String, dynamic>> uploadClubProfilePicture(String filePath) async {
+    final headerBytes = await File(filePath).openRead(0, 32).first;
+    final mimeType = lookupMimeType(filePath, headerBytes: headerBytes);
+    if (mimeType == null) {
+      throw Exception('Could not determine image type. Please choose a JPG/PNG/WebP image.');
+    }
+
+    const allowed = <String>{
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+    };
+    if (!allowed.contains(mimeType.toLowerCase())) {
+      throw Exception('Unsupported image type: $mimeType. Please choose a JPG/PNG/WebP image.');
+    }
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/clubs/upload-profile-picture'),
+    );
+
+    if (_accessToken != null) {
+      request.headers['Authorization'] = 'Bearer $_accessToken';
+    }
+
+    final parts = mimeType.split('/');
+    final file = await http.MultipartFile.fromPath(
+      'file',
+      filePath,
+      contentType: MediaType(parts[0], parts[1]),
+    );
+    request.files.add(file);
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return uploadClubProfilePicture(filePath);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Get all clubs
+  /// GET /clubs (Public endpoint - no auth required)
+  Future<Map<String, dynamic>> getAllClubs() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/clubs'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Create a new club
+  /// POST /clubs
+  Future<Map<String, dynamic>> createClub({
+    required String name,
+    String? profilePicture,
+    String? bio,
+    String? establishedDate,
+    required Map<String, dynamic> address,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/clubs'),
+      headers: _getHeaders(),
+      body: jsonEncode({
+        'name': name,
+        if (profilePicture != null) 'profilePicture': profilePicture,
+        if (bio != null) 'bio': bio,
+        if (establishedDate != null) 'establishedDate': establishedDate,
+        'address': address,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return createClub(
+          name: name,
+          profilePicture: profilePicture,
+          bio: bio,
+          establishedDate: establishedDate,
+          address: address,
+        );
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Get club by ID
+  /// GET /clubs/:id
+  Future<Map<String, dynamic>> getClubById(String id) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/clubs/$id'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return getClubById(id);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Update club
+  /// PUT /clubs/:id
+  Future<Map<String, dynamic>> updateClub({
+    required String id,
+    required String name,
+    String? profilePicture,
+    String? bio,
+    String? establishedDate,
+    required Map<String, dynamic> address,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/clubs/$id'),
+      headers: _getHeaders(),
+      body: jsonEncode({
+        'name': name,
+        if (profilePicture != null) 'profilePicture': profilePicture,
+        if (bio != null) 'bio': bio,
+        if (establishedDate != null) 'establishedDate': establishedDate,
+        'address': address,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return updateClub(
+          id: id,
+          name: name,
+          profilePicture: profilePicture,
+          bio: bio,
+          establishedDate: establishedDate,
+          address: address,
+        );
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
   // ==================== HELPER METHODS ====================
 
   /// Format error message from API response

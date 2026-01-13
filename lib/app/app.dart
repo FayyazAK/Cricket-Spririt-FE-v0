@@ -4,6 +4,7 @@ import '../views/auth/forgot_password_view.dart';
 import '../views/auth/login_view.dart';
 import '../views/auth/register_view.dart';
 import '../views/clubs/all_clubs_view.dart';
+import '../views/clubs/my_clubs_view.dart';
 import '../views/clubs/register_club_view.dart';
 import '../views/home/home_view.dart';
 import '../views/match/start_match_view.dart';
@@ -38,6 +39,7 @@ class CricketSpiritApp extends StatelessWidget {
         '/all-players': (_) => const AllPlayersView(),
         '/register-club': (_) => const RegisterClubView(),
         '/all-clubs': (_) => const AllClubsView(),
+        '/my-clubs': (_) => const MyClubsView(),
         '/tournaments': (_) => const TournamentsView(),
         '/matches': (_) => const MatchesView(),
       },

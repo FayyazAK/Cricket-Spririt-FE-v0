@@ -3,72 +3,53 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_state.dart';
 import '../../app/themes/themes.dart';
-import '../../models/club_model.dart';
+import '../../models/user_model.dart';
 import '../../services/api/api_service.dart';
 import 'club_view_page.dart';
+import 'register_club_view.dart';
 
-class AllClubsView extends StatefulWidget {
-  const AllClubsView({super.key});
+class MyClubsView extends StatefulWidget {
+  const MyClubsView({super.key});
 
   @override
-  State<AllClubsView> createState() => _AllClubsViewState();
+  State<MyClubsView> createState() => _MyClubsViewState();
 }
 
-class _AllClubsViewState extends State<AllClubsView> {
-  bool _isLoading = true;
-  String? _error;
-  List<Club> _clubs = [];
+class _MyClubsViewState extends State<MyClubsView> {
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchClubs();
+    _refreshProfile();
   }
 
-  Future<void> _fetchClubs() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
+  Future<void> _refreshProfile() async {
+    setState(() => _isLoading = true);
     try {
-      final response = await apiService.getAllClubs();
+      final response = await apiService.getCurrentUser();
       if (response['data'] != null) {
-        final clubsList = (response['data'] as List)
-            .map((e) => Club.fromJson(e as Map<String, dynamic>))
-            .toList();
-        setState(() {
-          _clubs = clubsList;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _clubs = [];
-          _isLoading = false;
-        });
+        final user = UserModel.fromJson(response['data']);
+        appState.updateUser(user);
       }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = e.toString().replaceAll('Exception: ', '');
-      });
+    } catch (_) {
+      // Ignore errors, just use cached data
     }
-  }
-
-  bool _isOwner(String clubId) {
-    final user = appState.currentUser;
-    if (user == null) return false;
-    return user.ownedClubs.any((c) => c.id == clubId);
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final user = appState.currentUser;
+    final ownedClubs = user?.ownedClubs ?? [];
 
     return Scaffold(
       backgroundColor: CricketSpiritColors.background,
       appBar: AppBar(
-        title: const Text('All Clubs'),
+        title: const Text('My Clubs'),
         actions: [
           if (_isLoading)
             const Padding(
@@ -85,91 +66,45 @@ class _AllClubsViewState extends State<AllClubsView> {
           else
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: _fetchClubs,
+              onPressed: _refreshProfile,
             ),
         ],
       ),
-      body: _buildBody(textTheme),
-    );
-  }
-
-  Widget _buildBody(TextTheme textTheme) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: CricketSpiritColors.primary,
-        ),
-      );
-    }
-
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                size: 64,
-                color: CricketSpiritColors.error,
+      body: ownedClubs.isEmpty
+          ? _buildEmptyState(textTheme)
+          : RefreshIndicator(
+              onRefresh: _refreshProfile,
+              color: CricketSpiritColors.primary,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: ownedClubs.length,
+                itemBuilder: (context, index) {
+                  final club = ownedClubs[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildClubCard(club, isOwner: true),
+                  );
+                },
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Failed to load clubs',
-                style: textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: CricketSpiritColors.mutedForeground,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _fetchClubs,
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_clubs.isEmpty) {
-      return _buildEmptyState(textTheme);
-    }
-
-    return RefreshIndicator(
-      onRefresh: _fetchClubs,
-      color: CricketSpiritColors.primary,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _clubs.length,
-        itemBuilder: (context, index) {
-          final club = _clubs[index];
-          final isOwner = _isOwner(club.id);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _ClubCard(
-              club: club,
-              isOwner: isOwner,
-              onTap: () {
-                Navigator.of(context).push(
+            ),
+      floatingActionButton: ownedClubs.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => ClubViewPage(
-                      clubId: club.id,
-                      isOwner: isOwner,
-                    ),
+                    builder: (_) => const RegisterClubView(),
                   ),
                 );
+                if (result == true) {
+                  await _refreshProfile();
+                }
               },
+              icon: const Icon(Icons.add),
+              label: const Text('Create Club'),
+              backgroundColor: CricketSpiritColors.primary,
+              foregroundColor: CricketSpiritColors.primaryForeground,
             ),
-          );
-        },
-      ),
     );
   }
 
@@ -195,65 +130,79 @@ class _AllClubsViewState extends State<AllClubsView> {
             ),
             const SizedBox(height: 24),
             Text(
-              'No Clubs Found',
+              'No Clubs Yet',
               style: textTheme.displaySmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'There are no cricket clubs registered yet.',
+              'Create your own cricket club and start managing your team.',
               style: textTheme.bodyMedium?.copyWith(
                 color: CricketSpiritColors.mutedForeground,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: _fetchClubs,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const RegisterClubView(),
+                  ),
+                );
+                if (result == true) {
+                  await _refreshProfile();
+                }
+              },
+              icon: const Icon(Icons.add_business_outlined),
+              label: const Text('Create a Club'),
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _ClubCard extends StatelessWidget {
-  const _ClubCard({
-    required this.club,
-    required this.isOwner,
-    this.onTap,
-  });
-
-  final Club club;
-  final bool isOwner;
-  final VoidCallback? onTap;
-
-  String? _getFullImageUrl(String? url) {
-    if (url == null || url.trim().isEmpty) return null;
-    final trimmed = url.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return trimmed;
-    }
-    final host = ApiService.baseUrl.split('/api/v1').first;
-    return '$host/$trimmed';
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildClubCard(OwnedClub club, {required bool isOwner}) {
     final textTheme = Theme.of(context).textTheme;
-    final logoUrl = _getFullImageUrl(club.profilePicture);
+    final logoUrl = club.profilePicture;
+    final hasLogo = logoUrl != null && logoUrl.trim().isNotEmpty;
 
-    final location = [
-      club.address.city,
-      club.address.state,
-    ].where((s) => s.trim().isNotEmpty).join(', ');
+    String? fullLogoUrl;
+    if (hasLogo) {
+      final trimmed = logoUrl.trim();
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        fullLogoUrl = trimmed;
+      } else {
+        final host = ApiService.baseUrl.split('/api/v1').first;
+        fullLogoUrl = '$host/$trimmed';
+      }
+    }
+
+    final address = club.address;
+    String location = '';
+    if (address != null) {
+      location = [
+        address.city,
+        address.state,
+      ].where((s) => s.trim().isNotEmpty).join(', ');
+    }
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: () async {
+        final result = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ClubViewPage(
+              clubId: club.id,
+              isOwner: isOwner,
+            ),
+          ),
+        );
+        if (result == true) {
+          await _refreshProfile();
+        }
+      },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(CricketSpiritRadius.card),
         child: BackdropFilter(
@@ -284,9 +233,9 @@ class _ClubCard extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(11),
-                    child: logoUrl != null
+                    child: fullLogoUrl != null
                         ? Image.network(
-                            logoUrl,
+                            fullLogoUrl,
                             fit: BoxFit.cover,
                             width: 64,
                             height: 64,
@@ -318,7 +267,6 @@ class _ClubCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Club Name
                       Text(
                         club.name,
                         style: textTheme.titleMedium?.copyWith(
@@ -328,7 +276,6 @@ class _ClubCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
-                      // Location
                       if (location.isNotEmpty)
                         Row(
                           children: [
@@ -350,29 +297,9 @@ class _ClubCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                      // Established date
-                      if (club.establishedDate != null) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today_outlined,
-                              size: 14,
-                              color: CricketSpiritColors.mutedForeground,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Est. ${club.establishedDate!.year}',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: CricketSpiritColors.mutedForeground,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                      const SizedBox(height: 8),
                       // Owner Badge
-                      if (isOwner) ...[
-                        const SizedBox(height: 8),
+                      if (isOwner)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -392,7 +319,7 @@ class _ClubCard extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Your Club',
+                                'Owner',
                                 style: textTheme.bodySmall?.copyWith(
                                   color: CricketSpiritColors.primary,
                                   fontWeight: FontWeight.w600,
@@ -401,15 +328,24 @@ class _ClubCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ),
-                // Arrow indicator
-                const Icon(
-                  Icons.chevron_right,
-                  color: CricketSpiritColors.mutedForeground,
-                ),
+                // Edit Icon for owners
+                if (isOwner)
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: CricketSpiritColors.secondary,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.edit_outlined,
+                      color: CricketSpiritColors.foreground,
+                      size: 20,
+                    ),
+                  ),
               ],
             ),
           ),
