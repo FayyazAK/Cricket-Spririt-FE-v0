@@ -8,9 +8,11 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../app/app_state.dart';
 import '../../app/themes/themes.dart';
 import '../../services/api/api_service.dart';
 import 'club_players_view.dart';
+import 'create_team_view.dart';
 import 'invite_players_view.dart';
 
 class ClubViewPage extends StatefulWidget {
@@ -43,6 +45,9 @@ class _ClubViewPageState extends State<ClubViewPage> {
   int _maxPlayers = 20;
   int _pendingCount = 0;
   int _rejectedCount = 0;
+
+  // Club teams
+  List<Map<String, dynamic>> _teams = [];
 
   // For editing
   Map<String, List<String>> _citiesByProvince = {};
@@ -144,6 +149,10 @@ class _ClubViewPageState extends State<ClubViewPage> {
     final rejectedPlayers = (_clubData!['rejectedPlayers'] as List?) ?? [];
     _rejectedPlayers = rejectedPlayers.cast<Map<String, dynamic>>();
 
+    // Extract teams
+    final teams = (_clubData!['teams'] as List?) ?? [];
+    _teams = teams.cast<Map<String, dynamic>>();
+
     // Extract player stats
     final playerStats = _clubData!['playerStats'] as Map<String, dynamic>?;
     if (playerStats != null) {
@@ -156,6 +165,88 @@ class _ClubViewPageState extends State<ClubViewPage> {
       _maxPlayers = 20;
       _pendingCount = _pendingPlayers.length;
       _rejectedCount = _rejectedPlayers.length;
+    }
+  }
+
+  /// Check if current user is a member of this club (not owner)
+  bool get _isCurrentUserMember {
+    if (widget.isOwner) return false;
+    final currentPlayerId = appState.currentUser?.player?.id;
+    if (currentPlayerId == null) return false;
+    return _clubPlayers.any((p) => p['id']?.toString() == currentPlayerId);
+  }
+
+  Future<void> _leaveClub() async {
+    final clubName = _clubData?['name'] ?? 'this club';
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: AlertDialog(
+          backgroundColor: CricketSpiritColors.card,
+          title: const Text('Leave Club'),
+          content: Text(
+            'Are you sure you want to leave "$clubName"? You will need a new invitation to rejoin.',
+            style: TextStyle(color: CricketSpiritColors.mutedForeground),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CricketSpiritColors.error,
+              ),
+              child: const Text('Leave', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: CricketSpiritColors.primary,
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await apiService.leaveClub(widget.clubId);
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You have left "$clubName"'),
+          backgroundColor: CricketSpiritColors.primary,
+        ),
+      );
+
+      // Go back to previous screen
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: CricketSpiritColors.error,
+        ),
+      );
     }
   }
 
@@ -544,9 +635,29 @@ class _ClubViewPageState extends State<ClubViewPage> {
           rejectedPlayers: _rejectedPlayers,
           totalCount: _totalPlayerCount,
           maxPlayers: _maxPlayers,
+          onPlayerRemoved: () {
+            // Refresh club details when a player is removed
+            _fetchClubDetails();
+          },
         ),
       ),
     );
+  }
+
+  void _navigateToCreateTeam() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => CreateTeamView(
+          clubId: widget.clubId,
+          clubName: _clubData!['name'] ?? 'Club',
+          clubPlayers: _clubPlayers,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      _fetchClubDetails();
+    }
   }
 
   Widget _buildViewMode(TextTheme textTheme) {
@@ -778,6 +889,145 @@ class _ClubViewPageState extends State<ClubViewPage> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Teams Section (for owners only)
+          if (widget.isOwner)
+            _buildGlassmorphicCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Teams',
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${_teams.length}',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Create teams from your club players for matches and tournaments',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: CricketSpiritColors.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Existing teams list
+                  if (_teams.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      width: double.infinity,
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.groups_outlined,
+                            size: 40,
+                            color: CricketSpiritColors.mutedForeground.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No teams yet',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: CricketSpiritColors.mutedForeground,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...List.generate(_teams.length, (index) {
+                      final team = _teams[index];
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: index < _teams.length - 1 ? 10 : 0),
+                        child: _buildTeamCard(team),
+                      );
+                    }),
+
+                  // Create team button
+                  if (_clubPlayers.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _navigateToCreateTeam,
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: const Text('Create Team'),
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Add players to your club to create teams',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: CricketSpiritColors.mutedForeground,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+          // Leave Club Button (for members who are not owners)
+          if (_isCurrentUserMember) ...[
+            const SizedBox(height: 16),
+            _buildGlassmorphicCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Membership',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'You are a member of this club.',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: CricketSpiritColors.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _leaveClub,
+                      icon: const Icon(Icons.logout, size: 18),
+                      label: const Text('Leave Club'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: CricketSpiritColors.error,
+                        side: BorderSide(
+                          color: CricketSpiritColors.error.withOpacity(0.5),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 40),
         ],
       ),
     );
@@ -849,6 +1099,94 @@ class _ClubViewPageState extends State<ClubViewPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTeamCard(Map<String, dynamic> team) {
+    final textTheme = Theme.of(context).textTheme;
+    final name = team['name'] ?? 'Team';
+    final description = team['description'];
+    // Prefer server-provided playerCount; fallback to players list length
+    final players = (team['players'] as List?) ?? [];
+    final playerCount = (team['playerCount'] as num?)?.toInt() ?? players.length;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.blue.withOpacity(0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.groups,
+              size: 22,
+              color: Colors.blue,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (description != null && description.toString().trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    description.toString(),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: CricketSpiritColors.mutedForeground,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.person_outline,
+                  size: 14,
+                  color: Colors.blue,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '$playerCount',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

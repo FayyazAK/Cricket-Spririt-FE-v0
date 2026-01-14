@@ -18,6 +18,7 @@ class ClubPlayersView extends StatefulWidget {
     required this.rejectedPlayers,
     required this.totalCount,
     required this.maxPlayers,
+    this.onPlayerRemoved,
   });
 
   final String clubId;
@@ -28,6 +29,7 @@ class ClubPlayersView extends StatefulWidget {
   final List<Map<String, dynamic>> rejectedPlayers;
   final int totalCount;
   final int maxPlayers;
+  final VoidCallback? onPlayerRemoved;
 
   @override
   State<ClubPlayersView> createState() => _ClubPlayersViewState();
@@ -36,10 +38,20 @@ class ClubPlayersView extends StatefulWidget {
 class _ClubPlayersViewState extends State<ClubPlayersView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late List<Map<String, dynamic>> _clubPlayers;
+  late List<Map<String, dynamic>> _pendingPlayers;
+  late List<Map<String, dynamic>> _rejectedPlayers;
+  late int _totalCount;
 
   @override
   void initState() {
     super.initState();
+    // Copy lists to local state
+    _clubPlayers = List.from(widget.clubPlayers);
+    _pendingPlayers = List.from(widget.pendingPlayers);
+    _rejectedPlayers = List.from(widget.rejectedPlayers);
+    _totalCount = widget.totalCount;
+
     // Only show all tabs if owner, otherwise just show club players
     _tabController = TabController(
       length: widget.isOwner ? 3 : 1,
@@ -63,6 +75,92 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
     return '$host/$trimmed';
   }
 
+  Future<void> _removePlayer(Map<String, dynamic> player) async {
+    final playerId = player['id']?.toString();
+    if (playerId == null) return;
+
+    final playerName = '${player['firstName'] ?? ''} ${player['lastName'] ?? ''}'.trim();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: AlertDialog(
+          backgroundColor: CricketSpiritColors.card,
+          title: const Text('Remove Player'),
+          content: Text(
+            'Are you sure you want to remove "$playerName" from the club?',
+            style: TextStyle(color: CricketSpiritColors.mutedForeground),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: CricketSpiritColors.error,
+              ),
+              child: const Text('Remove', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: CricketSpiritColors.primary,
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await apiService.removePlayerFromClub(
+        clubId: widget.clubId,
+        playerId: playerId,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading
+
+      // Update local state
+      setState(() {
+        _clubPlayers.removeWhere((p) => p['id']?.toString() == playerId);
+        _totalCount = _clubPlayers.length;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"$playerName" has been removed from the club'),
+          backgroundColor: CricketSpiritColors.primary,
+        ),
+      );
+
+      // Notify parent
+      widget.onPlayerRemoved?.call();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: CricketSpiritColors.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -80,9 +178,9 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
                 indicatorColor: CricketSpiritColors.primary,
                 indicatorSize: TabBarIndicatorSize.label,
                 tabs: [
-                  _buildTab('Players', widget.clubPlayers.length, CricketSpiritColors.primary),
-                  _buildTab('Invited', widget.pendingPlayers.length, Colors.orange),
-                  _buildTab('Rejected', widget.rejectedPlayers.length, CricketSpiritColors.error),
+                  _buildTab('Players', _clubPlayers.length, CricketSpiritColors.primary),
+                  _buildTab('Invited', _pendingPlayers.length, Colors.orange),
+                  _buildTab('Rejected', _rejectedPlayers.length, CricketSpiritColors.error),
                 ],
               )
             : null,
@@ -144,7 +242,7 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${widget.totalCount}/${widget.maxPlayers}',
+                        '$_totalCount/${widget.maxPlayers}',
                         style: textTheme.titleMedium?.copyWith(
                           color: CricketSpiritColors.primary,
                           fontWeight: FontWeight.w700,
@@ -164,19 +262,20 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
                     controller: _tabController,
                     children: [
                       _buildPlayerList(
-                        widget.clubPlayers,
+                        _clubPlayers,
                         PlayerCategory.club,
                         emptyMessage: 'No players in the club yet',
                         emptyIcon: Icons.people_outline,
+                        canRemove: true,
                       ),
                       _buildPlayerList(
-                        widget.pendingPlayers,
+                        _pendingPlayers,
                         PlayerCategory.invited,
                         emptyMessage: 'No pending invitations',
                         emptyIcon: Icons.mail_outline,
                       ),
                       _buildPlayerList(
-                        widget.rejectedPlayers,
+                        _rejectedPlayers,
                         PlayerCategory.rejected,
                         emptyMessage: 'No rejected invitations',
                         emptyIcon: Icons.person_off_outlined,
@@ -184,7 +283,7 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
                     ],
                   )
                 : _buildPlayerList(
-                    widget.clubPlayers,
+                    _clubPlayers,
                     PlayerCategory.club,
                     emptyMessage: 'No players in the club yet',
                     emptyIcon: Icons.people_outline,
@@ -229,6 +328,7 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
     PlayerCategory category, {
     required String emptyMessage,
     required IconData emptyIcon,
+    bool canRemove = false,
   }) {
     if (players.isEmpty) {
       return _buildEmptyState(emptyMessage, emptyIcon);
@@ -245,6 +345,8 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
             player: player,
             category: category,
             photoUrl: _getFullImageUrl(player['profilePicture']),
+            canRemove: canRemove,
+            onRemove: canRemove ? () => _removePlayer(player) : null,
           ),
         );
       },
@@ -284,11 +386,15 @@ class _PlayerCard extends StatelessWidget {
     required this.player,
     required this.category,
     required this.photoUrl,
+    this.canRemove = false,
+    this.onRemove,
   });
 
   final Map<String, dynamic> player;
   final PlayerCategory category;
   final String? photoUrl;
+  final bool canRemove;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -432,10 +538,35 @@ class _PlayerCard extends StatelessWidget {
                   ),
                 ),
 
-                // Status indicator
-                _buildStatusIcon(category),
+                // Status indicator or Remove button
+                if (canRemove && category == PlayerCategory.club)
+                  _buildRemoveButton()
+                else
+                  _buildStatusIcon(category),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRemoveButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onRemove,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: CricketSpiritColors.error.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.person_remove_outlined,
+            size: 20,
+            color: CricketSpiritColors.error,
           ),
         ),
       ),

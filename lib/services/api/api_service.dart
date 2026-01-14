@@ -729,6 +729,99 @@ class ApiService {
     }
   }
 
+  /// Leave club (Player action)
+  /// POST /clubs/:clubId/leave
+  Future<Map<String, dynamic>> leaveClub(String clubId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/clubs/$clubId/leave'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return leaveClub(clubId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Remove player from club (Owner action)
+  /// DELETE /clubs/:clubId/players/:playerId
+  Future<Map<String, dynamic>> removePlayerFromClub({
+    required String clubId,
+    required String playerId,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/clubs/$clubId/players/$playerId'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return removePlayerFromClub(clubId: clubId, playerId: playerId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  // ==================== TEAM APIs ====================
+
+  /// Create a new team for a club
+  /// POST /teams
+  Future<Map<String, dynamic>> createTeam({
+    required String name,
+    String? logo,
+    String? description,
+    required String clubId,
+    required List<String> playerIds,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/teams'),
+      headers: _getHeaders(),
+      body: jsonEncode({
+        'name': name,
+        if (logo != null) 'logo': logo,
+        if (description != null) 'description': description,
+        'clubId': clubId,
+        'playerIds': playerIds,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return createTeam(
+          name: name,
+          logo: logo,
+          description: description,
+          clubId: clubId,
+          playerIds: playerIds,
+        );
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
   // ==================== CLUB INVITATION APIs ====================
 
   /// Get player's club invitations
