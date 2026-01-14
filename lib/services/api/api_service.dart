@@ -700,6 +700,106 @@ class ApiService {
     }
   }
 
+  /// Invite player to club
+  /// POST /clubs/:clubId/players
+  Future<Map<String, dynamic>> invitePlayerToClub({
+    required String clubId,
+    required String playerId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/clubs/$clubId/players'),
+      headers: _getHeaders(),
+      body: jsonEncode({
+        'playerId': playerId,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return invitePlayerToClub(clubId: clubId, playerId: playerId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  // ==================== CLUB INVITATION APIs ====================
+
+  /// Get player's club invitations
+  /// GET /players/me/club-invitations
+  Future<Map<String, dynamic>> getMyClubInvitations() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/players/me/club-invitations'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return getMyClubInvitations();
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Accept club invitation
+  /// POST /clubs/invitations/:invitationId/accept
+  Future<Map<String, dynamic>> acceptClubInvitation(String invitationId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/clubs/invitations/$invitationId/accept'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return acceptClubInvitation(invitationId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Reject club invitation
+  /// POST /clubs/invitations/:invitationId/reject
+  Future<Map<String, dynamic>> rejectClubInvitation(String invitationId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/clubs/invitations/$invitationId/reject'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return rejectClubInvitation(invitationId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
   // ==================== HELPER METHODS ====================
 
   /// Format error message from API response

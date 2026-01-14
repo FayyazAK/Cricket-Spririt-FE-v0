@@ -10,6 +10,8 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../app/themes/themes.dart';
 import '../../services/api/api_service.dart';
+import 'club_players_view.dart';
+import 'invite_players_view.dart';
 
 class ClubViewPage extends StatefulWidget {
   const ClubViewPage({
@@ -32,6 +34,15 @@ class _ClubViewPageState extends State<ClubViewPage> {
   bool _isEditing = false;
   String? _error;
   Map<String, dynamic>? _clubData;
+
+  // Club players (from club details response)
+  List<Map<String, dynamic>> _clubPlayers = [];
+  List<Map<String, dynamic>> _pendingPlayers = [];
+  List<Map<String, dynamic>> _rejectedPlayers = [];
+  int _totalPlayerCount = 0;
+  int _maxPlayers = 20;
+  int _pendingCount = 0;
+  int _rejectedCount = 0;
 
   // For editing
   Map<String, List<String>> _citiesByProvince = {};
@@ -107,6 +118,7 @@ class _ClubViewPageState extends State<ClubViewPage> {
       if (response['data'] != null) {
         _clubData = response['data'] as Map<String, dynamic>;
         _populateFields();
+        _extractPlayersData();
       }
       setState(() => _isLoading = false);
     } catch (e) {
@@ -114,6 +126,36 @@ class _ClubViewPageState extends State<ClubViewPage> {
         _isLoading = false;
         _error = e.toString().replaceAll('Exception: ', '');
       });
+    }
+  }
+
+  void _extractPlayersData() {
+    if (_clubData == null) return;
+
+    // Extract club players
+    final clubPlayers = (_clubData!['clubPlayers'] as List?) ?? [];
+    _clubPlayers = clubPlayers.cast<Map<String, dynamic>>();
+
+    // Extract pending players (only for owner)
+    final pendingPlayers = (_clubData!['pendingPlayers'] as List?) ?? [];
+    _pendingPlayers = pendingPlayers.cast<Map<String, dynamic>>();
+
+    // Extract rejected players (only for owner)
+    final rejectedPlayers = (_clubData!['rejectedPlayers'] as List?) ?? [];
+    _rejectedPlayers = rejectedPlayers.cast<Map<String, dynamic>>();
+
+    // Extract player stats
+    final playerStats = _clubData!['playerStats'] as Map<String, dynamic>?;
+    if (playerStats != null) {
+      _totalPlayerCount = (playerStats['total'] as num?)?.toInt() ?? _clubPlayers.length;
+      _maxPlayers = (playerStats['maxPlayers'] as num?)?.toInt() ?? 20;
+      _pendingCount = (playerStats['pending'] as num?)?.toInt() ?? _pendingPlayers.length;
+      _rejectedCount = (playerStats['rejected'] as num?)?.toInt() ?? _rejectedPlayers.length;
+    } else {
+      _totalPlayerCount = _clubPlayers.length;
+      _maxPlayers = 20;
+      _pendingCount = _pendingPlayers.length;
+      _rejectedCount = _rejectedPlayers.length;
     }
   }
 
@@ -457,6 +499,56 @@ class _ClubViewPageState extends State<ClubViewPage> {
     return _buildViewMode(textTheme);
   }
 
+  void _navigateToInvitePlayers() async {
+    final acceptedIds = _clubPlayers
+        .map((p) => p['id']?.toString())
+        .whereType<String>()
+        .toSet();
+    final pendingIds = _pendingPlayers
+        .map((p) => p['id']?.toString())
+        .whereType<String>()
+        .toSet();
+    final rejectedIds = _rejectedPlayers
+        .map((p) => p['id']?.toString())
+        .whereType<String>()
+        .toSet();
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => InvitePlayersView(
+          clubId: widget.clubId,
+          clubName: _clubData!['name'] ?? 'Club',
+          currentPlayerCount: _totalPlayerCount + _pendingCount,
+          maxPlayers: _maxPlayers,
+          existingPlayerIds: acceptedIds,
+          pendingPlayerIds: pendingIds,
+          rejectedPlayerIds: rejectedIds,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      _fetchClubDetails();
+    }
+  }
+
+  void _navigateToClubPlayers() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClubPlayersView(
+          clubId: widget.clubId,
+          clubName: _clubData!['name'] ?? 'Club',
+          isOwner: widget.isOwner,
+          clubPlayers: _clubPlayers,
+          pendingPlayers: _pendingPlayers,
+          rejectedPlayers: _rejectedPlayers,
+          totalCount: _totalPlayerCount,
+          maxPlayers: _maxPlayers,
+        ),
+      ),
+    );
+  }
+
   Widget _buildViewMode(TextTheme textTheme) {
     final logoUrl = _getFullImageUrl(_clubData!['profilePicture']);
     final address = _clubData!['address'] as Map<String, dynamic>?;
@@ -611,7 +703,152 @@ class _ClubViewPageState extends State<ClubViewPage> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Club Players Section
+          _buildGlassmorphicCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Players',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: CricketSpiritColors.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$_totalPlayerCount/$_maxPlayers',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: CricketSpiritColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Player Category Cards
+                _buildPlayerCategoryCard(
+                  icon: Icons.people,
+                  label: 'Club Players',
+                  count: _totalPlayerCount,
+                  color: CricketSpiritColors.primary,
+                  onTap: _navigateToClubPlayers,
+                ),
+                if (widget.isOwner) ...[
+                  const SizedBox(height: 10),
+                  _buildPlayerCategoryCard(
+                    icon: Icons.mail_outline,
+                    label: 'Invited Players',
+                    count: _pendingCount,
+                    color: Colors.orange,
+                    onTap: _navigateToClubPlayers,
+                  ),
+                  const SizedBox(height: 10),
+                  _buildPlayerCategoryCard(
+                    icon: Icons.person_off_outlined,
+                    label: 'Rejected Players',
+                    count: _rejectedCount,
+                    color: CricketSpiritColors.error,
+                    onTap: _navigateToClubPlayers,
+                  ),
+                ],
+
+                if (widget.isOwner && (_totalPlayerCount + _pendingCount) < _maxPlayers) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _navigateToInvitePlayers,
+                      icon: const Icon(Icons.person_add_outlined),
+                      label: const Text('Add Players'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerCategoryCard({
+    required IconData icon,
+    required String label,
+    required int count,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: color.withOpacity(0.25),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: color,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$count',
+                style: textTheme.bodyMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: CricketSpiritColors.mutedForeground,
+            ),
+          ],
+        ),
       ),
     );
   }

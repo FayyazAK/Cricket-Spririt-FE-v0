@@ -38,7 +38,7 @@ class _AllPlayersViewState extends State<AllPlayersView> {
   String? _city;
   String? _playerType; // BATSMAN | BOWLER | ALL_ROUNDER
   int _page = 1;
-  final int _limit = 20;
+  final int _limit = 30;
   int _totalPages = 1;
   int _total = 0;
   String _sortBy = _defaultSortBy;
@@ -805,22 +805,28 @@ class _LoadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shadowColor: Colors.black12,
-      color: CricketSpiritColors.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: CricketSpiritColors.border.withValues(alpha: 0.5)),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: CricketSpiritColors.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Loading more players...',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: CricketSpiritColors.mutedForeground,
+              ),
+            ),
+          ],
         ),
       ),
     );

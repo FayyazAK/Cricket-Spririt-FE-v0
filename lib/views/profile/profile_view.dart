@@ -7,6 +7,7 @@ import '../../app/themes/themes.dart';
 import '../../models/user_model.dart';
 import '../../services/api/api_service.dart';
 import '../clubs/register_club_view.dart';
+import '../players/club_invitations_view.dart';
 import '../players/register_player_view.dart';
 
 class ProfileView extends StatefulWidget {
@@ -310,6 +311,9 @@ class _ProfileViewState extends State<ProfileView> {
                   ),
                   const SizedBox(height: 12),
                   _buildPlayerProfileSection(user),
+                  // Club Invitations Button (only for players)
+                  if ((user?.role ?? '').toUpperCase() == 'PLAYER' && user?.player != null)
+                    _buildClubInvitationsButton(),
                   const SizedBox(height: 24),
                   // My Clubs Section
                   _buildMyClubsSection(user),
@@ -580,6 +584,68 @@ class _ProfileViewState extends State<ProfileView> {
             child: Text(value, style: textTheme.bodyMedium),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildClubInvitationsButton() {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: _buildGlassmorphicCard(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ClubInvitationsView(),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(CricketSpiritRadius.card),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.mail_outline,
+                  color: Colors.orange,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Club Invitations',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'View and respond to club invitations',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: CricketSpiritColors.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: CricketSpiritColors.mutedForeground,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
