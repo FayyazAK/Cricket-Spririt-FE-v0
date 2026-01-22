@@ -7,8 +7,10 @@ import '../../app/themes/themes.dart';
 import '../../models/user_model.dart';
 import '../../services/api/api_service.dart';
 import '../clubs/register_club_view.dart';
+import '../clubs/club_view_page.dart';
 import '../players/club_invitations_view.dart';
 import '../players/register_player_view.dart';
+import '../../models/player_model.dart';
 
 class ProfileView extends StatefulWidget {
   const ProfileView({super.key});
@@ -314,6 +316,12 @@ class _ProfileViewState extends State<ProfileView> {
                   // Club Invitations Button (only for players)
                   if ((user?.role ?? '').toUpperCase() == 'PLAYER' && user?.player != null)
                     _buildClubInvitationsButton(),
+                  if ((user?.role ?? '').toUpperCase() == 'PLAYER' && user?.player != null) ...[
+                    const SizedBox(height: 24),
+                    _buildJoinedClubsSection(user),
+                    const SizedBox(height: 24),
+                    _buildJoinedTeamsSection(user),
+                  ],
                   const SizedBox(height: 24),
                   // My Clubs Section
                   _buildMyClubsSection(user),
@@ -645,6 +653,277 @@ class _ProfileViewState extends State<ProfileView> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJoinedClubsSection(UserModel? user) {
+    final textTheme = Theme.of(context).textTheme;
+    final joinedClubs = user?.player?.joinedClubs ?? const [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'JOINED CLUBS',
+          style: textTheme.labelLarge?.copyWith(
+            fontSize: 12,
+            color: CricketSpiritColors.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (joinedClubs.isEmpty)
+          _buildGlassmorphicCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No joined clubs yet',
+                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Join a club or accept an invitation to see it here.',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: CricketSpiritColors.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            children: joinedClubs
+                .map((club) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildJoinedClubCard(club),
+                    ))
+                .toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildJoinedTeamsSection(UserModel? user) {
+    final textTheme = Theme.of(context).textTheme;
+    final joinedTeams = user?.player?.joinedTeams ?? const [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'JOINED TEAMS',
+          style: textTheme.labelLarge?.copyWith(
+            fontSize: 12,
+            color: CricketSpiritColors.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (joinedTeams.isEmpty)
+          _buildGlassmorphicCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'No joined teams yet',
+                  style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'When a club adds you to a team, it will show up here.',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: CricketSpiritColors.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            children: joinedTeams
+                .map((team) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildJoinedTeamCard(team),
+                    ))
+                .toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildJoinedClubCard(JoinedClub club) {
+    final textTheme = Theme.of(context).textTheme;
+    final logoUrl = _normalizeImageUrl(club.profilePicture);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(CricketSpiritRadius.card),
+      onTap: club.id.isEmpty ? null : () => _openClub(club.id),
+      child: _buildGlassmorphicCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: CricketSpiritColors.primary.withOpacity(0.15),
+                border: Border.all(
+                  color: CricketSpiritColors.primary.withOpacity(0.3),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: logoUrl != null
+                    ? Image.network(
+                        logoUrl,
+                        fit: BoxFit.cover,
+                        width: 52,
+                        height: 52,
+                        headers: apiService.accessToken != null
+                            ? {'Authorization': 'Bearer ${apiService.accessToken}'}
+                            : null,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.groups_2_outlined,
+                          color: CricketSpiritColors.primary,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.groups_2_outlined,
+                        color: CricketSpiritColors.primary,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                club.name.isNotEmpty ? club.name : 'Club',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: CricketSpiritColors.mutedForeground,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJoinedTeamCard(JoinedTeam team) {
+    final textTheme = Theme.of(context).textTheme;
+    final logoUrl = _normalizeImageUrl(team.logo);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(CricketSpiritRadius.card),
+      onTap: team.clubId.isEmpty ? null : () => _openClub(team.clubId),
+      child: _buildGlassmorphicCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.blue.withOpacity(0.12),
+                border: Border.all(
+                  color: Colors.blue.withOpacity(0.3),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: logoUrl != null
+                    ? Image.network(
+                        logoUrl,
+                        fit: BoxFit.cover,
+                        width: 52,
+                        height: 52,
+                        headers: apiService.accessToken != null
+                            ? {'Authorization': 'Bearer ${apiService.accessToken}'}
+                            : null,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.shield_outlined,
+                          color: Colors.blue,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.shield_outlined,
+                        color: Colors.blue,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    team.name.isNotEmpty ? team.name : 'Team',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.business_outlined,
+                        size: 14,
+                        color: CricketSpiritColors.mutedForeground,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Club: ${team.clubId}',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: CricketSpiritColors.mutedForeground,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: CricketSpiritColors.mutedForeground,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _normalizeImageUrl(String? url) {
+    if (url == null) return null;
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return null;
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final host = ApiService.baseUrl.split('/api/v1').first;
+    if (trimmed.startsWith('/')) return '$host$trimmed';
+    return '$host/$trimmed';
+  }
+
+  void _openClub(String clubId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClubViewPage(
+          clubId: clubId,
+          isOwner: false,
         ),
       ),
     );

@@ -59,6 +59,8 @@ class Player {
   final bool isActive;
   final PlayerAddress address;
   final List<BowlingType> bowlingTypes;
+  final List<JoinedClub> joinedClubs;
+  final List<JoinedTeam> joinedTeams;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -76,6 +78,8 @@ class Player {
     this.isActive = true,
     required this.address,
     required this.bowlingTypes,
+    this.joinedClubs = const [],
+    this.joinedTeams = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -98,6 +102,16 @@ class Player {
               ?.map((e) => BowlingType.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      joinedClubs: (json['joinedClubs'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map((e) => JoinedClub.fromJson(e))
+              .toList() ??
+          const [],
+      joinedTeams: (json['joinedTeams'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map((e) => JoinedTeam.fromJson(e))
+              .toList() ??
+          const [],
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : null,
@@ -125,6 +139,8 @@ class Player {
       // - `bowlingTypeIds` for API update/register payloads (when needed elsewhere)
       'bowlingTypes': bowlingTypes.map((e) => e.toJson()).toList(),
       'bowlingTypeIds': bowlingTypes.map((e) => e.id).toList(),
+      'joinedClubs': joinedClubs.map((e) => e.toJson()).toList(),
+      'joinedTeams': joinedTeams.map((e) => e.toJson()).toList(),
     };
     
     if (id != null) map['id'] = id;
@@ -132,5 +148,67 @@ class Player {
     if (updatedAt != null) map['updatedAt'] = updatedAt!.toIso8601String();
     
     return map;
+  }
+}
+
+/// Minimal joined club representation for `/auth/me`
+class JoinedClub {
+  final String id;
+  final String name;
+  final String? profilePicture;
+
+  JoinedClub({
+    required this.id,
+    required this.name,
+    this.profilePicture,
+  });
+
+  factory JoinedClub.fromJson(Map<String, dynamic> json) {
+    return JoinedClub(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      profilePicture: json['profilePicture'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      if (profilePicture != null) 'profilePicture': profilePicture,
+    };
+  }
+}
+
+/// Minimal joined team representation for `/auth/me`
+class JoinedTeam {
+  final String id;
+  final String name;
+  final String? logo;
+  final String clubId;
+
+  JoinedTeam({
+    required this.id,
+    required this.name,
+    this.logo,
+    required this.clubId,
+  });
+
+  factory JoinedTeam.fromJson(Map<String, dynamic> json) {
+    return JoinedTeam(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      logo: json['logo'] as String?,
+      clubId: json['clubId']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      if (logo != null) 'logo': logo,
+      'clubId': clubId,
+    };
   }
 }

@@ -223,34 +223,35 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: CricketSpiritColors.primary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: CricketSpiritColors.primary.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.people_outline,
-                        size: 18,
-                        color: CricketSpiritColors.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$_totalCount/${widget.maxPlayers}',
-                        style: textTheme.titleMedium?.copyWith(
-                          color: CricketSpiritColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+            if (widget.isOwner)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: CricketSpiritColors.primary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: CricketSpiritColors.primary.withOpacity(0.3),
                   ),
                 ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.people_outline,
+                      size: 18,
+                      color: CricketSpiritColors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$_totalCount/${widget.maxPlayers}',
+                      style: textTheme.titleMedium?.copyWith(
+                        color: CricketSpiritColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               ],
             ),
           ),
@@ -287,6 +288,7 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
                     PlayerCategory.club,
                     emptyMessage: 'No players in the club yet',
                     emptyIcon: Icons.people_outline,
+                    showStatusIcon: false,
                   ),
           ),
         ],
@@ -329,6 +331,7 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
     required String emptyMessage,
     required IconData emptyIcon,
     bool canRemove = false,
+    bool showStatusIcon = true,
   }) {
     if (players.isEmpty) {
       return _buildEmptyState(emptyMessage, emptyIcon);
@@ -346,6 +349,7 @@ class _ClubPlayersViewState extends State<ClubPlayersView>
             category: category,
             photoUrl: _getFullImageUrl(player['profilePicture']),
             canRemove: canRemove,
+            showStatusIcon: showStatusIcon,
             onRemove: canRemove ? () => _removePlayer(player) : null,
           ),
         );
@@ -388,6 +392,7 @@ class _PlayerCard extends StatelessWidget {
     required this.photoUrl,
     this.canRemove = false,
     this.onRemove,
+    this.showStatusIcon = true,
   });
 
   final Map<String, dynamic> player;
@@ -395,6 +400,7 @@ class _PlayerCard extends StatelessWidget {
   final String? photoUrl;
   final bool canRemove;
   final VoidCallback? onRemove;
+  final bool showStatusIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -541,7 +547,7 @@ class _PlayerCard extends StatelessWidget {
                 // Status indicator or Remove button
                 if (canRemove && category == PlayerCategory.club)
                   _buildRemoveButton()
-                else
+                else if (showStatusIcon)
                   _buildStatusIcon(category),
               ],
             ),
