@@ -7,7 +7,9 @@ import '../views/clubs/all_clubs_view.dart';
 import '../views/clubs/my_clubs_view.dart';
 import '../views/clubs/register_club_view.dart';
 import '../views/home/home_view.dart';
+import '../views/match/create_match_view.dart';
 import '../views/match/start_match_view.dart';
+import '../views/matches/my_matches_view.dart';
 import '../views/matches/matches_view.dart';
 import '../views/onboarding/onboarding_view.dart';
 import '../views/players/all_players_view.dart';
@@ -33,6 +35,7 @@ class CricketSpiritApp extends StatelessWidget {
         AppRoutes.register: (_) => const RegisterView(),
         AppRoutes.home: (_) => const HomeView(),
         '/start-match': (_) => const StartMatchView(),
+        '/create-match': (_) => const CreateMatchView(),
         '/profile': (_) => const ProfileView(),
         '/forgot-password': (_) => const ForgotPasswordView(),
         '/register-player': (_) => const RegisterPlayerView(),
@@ -42,6 +45,7 @@ class CricketSpiritApp extends StatelessWidget {
         '/my-clubs': (_) => const MyClubsView(),
         '/tournaments': (_) => const TournamentsView(),
         '/matches': (_) => const MatchesView(),
+        '/my-matches': (_) => const MyMatchesView(),
       },
     );
   }

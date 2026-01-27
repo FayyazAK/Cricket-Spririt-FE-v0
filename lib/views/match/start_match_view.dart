@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../app/themes/themes.dart';
-import '../profile/profile_view.dart';
 
 class StartMatchView extends StatefulWidget {
   const StartMatchView({super.key});
@@ -10,6 +9,7 @@ class StartMatchView extends StatefulWidget {
 }
 
 class _StartMatchViewState extends State<StartMatchView> {
+  static const _stepLabels = ['Setup', 'Toss', 'Players'];
   int _currentStep = 0;
 
   // Step 1: Match Setup
@@ -27,6 +27,7 @@ class _StartMatchViewState extends State<StartMatchView> {
   String? _nonStriker;
   String? _bowler;
 
+  static const _oversOptions = [5, 10, 20, 50];
   final List<String> _teams = [
     'Royal Strikers',
     'City Titans',
@@ -45,175 +46,121 @@ class _StartMatchViewState extends State<StartMatchView> {
     'Babar Azam',
   ];
 
+  bool get _canProceedSetup =>
+      _homeTeam != null &&
+      _awayTeam != null &&
+      _homeTeam != _awayTeam;
+
+  bool get _canProceedToss =>
+      _tossWinner != null && _electedTo != null;
+
+  bool get _canProceedPlayers {
+    if (_striker == null || _nonStriker == null || _bowler == null) return false;
+    final s = {_striker!, _nonStriker!, _bowler!};
+    return s.length == 3;
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
+      backgroundColor: CricketSpiritColors.background,
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: CricketSpiritColors.primary,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Center(
-                child: Text(
-                  'CS',
-                  style: textTheme.titleMedium?.copyWith(
-                    color: CricketSpiritColors.primaryForeground,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'CRICKET ',
-              style: textTheme.headlineSmall?.copyWith(
-                color: CricketSpiritColors.foreground,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
-            ),
-            Text(
-              'SPIRIT',
-              style: textTheme.headlineSmall?.copyWith(
-                color: CricketSpiritColors.primary,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
-            ),
-          ],
+        backgroundColor: CricketSpiritColors.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+        title: Text(
+          'Create Match',
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: CricketSpiritColors.foreground,
           ),
-          IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () {},
-          ),
-        ],
+        ),
+        centerTitle: true,
       ),
       body: Column(
         children: [
-          // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'START NEW MATCH',
-                  style: textTheme.displaySmall?.copyWith(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Configure match settings, teams, and toss details.',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: CricketSpiritColors.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Progress Indicator
+          // Step progress
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
             child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: CricketSpiritColors.primary,
-                      borderRadius: BorderRadius.circular(2),
+              children: List.generate(_stepLabels.length * 2 - 1, (i) {
+                if (i.isOdd) {
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Container(
+                        height: 2,
+                        color: _currentStep > i ~/ 2
+                            ? CricketSpiritColors.primary
+                            : CricketSpiritColors.border,
+                      ),
                     ),
+                  );
+                }
+                final step = i ~/ 2;
+                final active = _currentStep == step;
+                final completed = _currentStep > step;
+                return Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: completed
+                              ? CricketSpiritColors.primary
+                              : active
+                                  ? CricketSpiritColors.primary
+                                  : CricketSpiritColors.border,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: completed
+                              ? Icon(
+                                  Icons.check,
+                                  size: 16,
+                                  color: CricketSpiritColors.primaryForeground,
+                                )
+                              : Text(
+                                  '${step + 1}',
+                                  style: textTheme.labelLarge?.copyWith(
+                                    fontSize: 12,
+                                    color: active || completed
+                                        ? CricketSpiritColors.primaryForeground
+                                        : CricketSpiritColors.mutedForeground,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _stepLabels[step],
+                        style: textTheme.bodySmall?.copyWith(
+                          color: active || completed
+                              ? CricketSpiritColors.foreground
+                              : CricketSpiritColors.mutedForeground,
+                          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _currentStep >= 1
-                          ? CricketSpiritColors.primary
-                          : CricketSpiritColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _currentStep >= 2
-                          ? CricketSpiritColors.primary
-                          : CricketSpiritColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-              ],
+                );
+              }),
             ),
           ),
           // Content
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: _buildStepContent(),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.of(context).pop(); // Go back to home
-          } else if (index == 3) {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileView()),
-            );
-          }
-        },
-        backgroundColor: CricketSpiritColors.card,
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: CricketSpiritColors.primary,
-        unselectedItemColor: CricketSpiritColors.mutedForeground,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'HOME',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sports_cricket_outlined),
-            activeIcon: Icon(Icons.sports_cricket),
-            label: 'MATCHES',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events_outlined),
-            activeIcon: Icon(Icons.emoji_events),
-            label: 'TOURNAMENTS',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'PROFILE',
           ),
         ],
       ),
@@ -236,6 +183,9 @@ class _StartMatchViewState extends State<StartMatchView> {
   // Step 1: Match Setup
   Widget _buildMatchSetupStep() {
     final textTheme = Theme.of(context).textTheme;
+    final sameTeamError = _homeTeam != null &&
+        _awayTeam != null &&
+        _homeTeam == _awayTeam;
 
     return Container(
       decoration: BoxDecoration(
@@ -247,27 +197,27 @@ class _StartMatchViewState extends State<StartMatchView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Home Team
+          _buildSectionHeader(
+            icon: Icons.groups,
+            label: 'Teams',
+            textTheme: textTheme,
+          ),
+          const SizedBox(height: 16),
           Text(
             'Home Team',
-            style: textTheme.titleMedium?.copyWith(
-              color: CricketSpiritColors.foreground,
+            style: textTheme.bodyMedium?.copyWith(
+              color: CricketSpiritColors.mutedForeground,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _buildDropdown(
             value: _homeTeam,
-            hint: 'Royal Strikers',
+            hint: 'Select home team',
             items: _teams,
-            onChanged: (value) {
-              setState(() {
-                _homeTeam = value;
-              });
-            },
+            onChanged: (value) => setState(() => _homeTeam = value),
           ),
-          const SizedBox(height: 24),
-          // VS Badge
+          const SizedBox(height: 20),
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -284,117 +234,153 @@ class _StartMatchViewState extends State<StartMatchView> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          // Away Team
+          const SizedBox(height: 20),
           Text(
             'Away Team',
-            style: textTheme.titleMedium?.copyWith(
-              color: CricketSpiritColors.foreground,
+            style: textTheme.bodyMedium?.copyWith(
+              color: CricketSpiritColors.mutedForeground,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _buildDropdown(
             value: _awayTeam,
-            hint: 'City Titans',
+            hint: 'Select away team',
             items: _teams,
-            onChanged: (value) {
-              setState(() {
-                _awayTeam = value;
-              });
-            },
+            onChanged: (value) => setState(() => _awayTeam = value),
           ),
+          if (sameTeamError) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 16,
+                  color: CricketSpiritColors.error,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Home and away team must be different',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: CricketSpiritColors.error,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
-          // Overs and Ball Type
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Overs',
-                      style: textTheme.titleMedium?.copyWith(
-                        color: CricketSpiritColors.foreground,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: CricketSpiritColors.white10,
-                        borderRadius: BorderRadius.circular(
-                          CricketSpiritRadius.input,
-                        ),
-                        border: Border.all(color: CricketSpiritColors.border),
-                      ),
-                      child: Text(
-                        _overs.toString(),
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: CricketSpiritColors.foreground,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ball Type',
-                      style: textTheme.titleMedium?.copyWith(
-                        color: CricketSpiritColors.foreground,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDropdown(
-                      value: _ballType,
-                      hint: 'Leather',
-                      items: const ['Leather', 'Tennis', 'Rubber'],
-                      onChanged: (value) {
-                        setState(() {
-                          _ballType = value!;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _buildSectionHeader(
+            icon: Icons.tune,
+            label: 'Match format',
+            textTheme: textTheme,
           ),
-          const SizedBox(height: 32),
-          // Next Button
+          const SizedBox(height: 16),
+          Text(
+            'Overs',
+            style: textTheme.bodyMedium?.copyWith(
+              color: CricketSpiritColors.mutedForeground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: _oversOptions.map<Widget>((o) {
+              final selected = _overs == o;
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: GestureDetector(
+                  onTap: () => setState(() => _overs = o),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? CricketSpiritColors.primary
+                          : CricketSpiritColors.white10,
+                      borderRadius: BorderRadius.circular(
+                        CricketSpiritRadius.button,
+                      ),
+                      border: Border.all(
+                        color: selected
+                            ? CricketSpiritColors.primary
+                            : CricketSpiritColors.border,
+                      ),
+                    ),
+                    child: Text(
+                      '$o',
+                      style: textTheme.titleMedium?.copyWith(
+                        color: selected
+                            ? CricketSpiritColors.primaryForeground
+                            : CricketSpiritColors.foreground,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Ball Type',
+            style: textTheme.bodyMedium?.copyWith(
+              color: CricketSpiritColors.mutedForeground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildDropdown(
+            value: _ballType,
+            hint: 'Leather',
+            items: const ['Leather', 'Tennis', 'Rubber'],
+            onChanged: (value) => setState(() => _ballType = value!),
+          ),
+          const SizedBox(height: 28),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _currentStep = 1;
-                });
-              },
+              onPressed: _canProceedSetup
+                  ? () => setState(() => _currentStep = 1)
+                  : null,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Next: Toss'),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward, size: 18),
+                  Text('Next: Toss'),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward, size: 18),
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String label,
+    required TextTheme textTheme,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: CricketSpiritColors.primary, size: 20),
+        const SizedBox(width: 8),
+        Text(
+          label.toUpperCase(),
+          style: textTheme.titleMedium?.copyWith(
+            color: CricketSpiritColors.foreground,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
     );
   }
 
@@ -413,32 +399,41 @@ class _StartMatchViewState extends State<StartMatchView> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          // Toss Icon
           Container(
-            width: 80,
-            height: 80,
-            decoration: const BoxDecoration(
-              color: Color(0xFFD97706),
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD97706).withOpacity(0.2),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFFD97706),
+                width: 2,
+              ),
             ),
             child: const Icon(
               Icons.monetization_on,
-              size: 40,
-              color: Colors.white,
+              size: 32,
+              color: Color(0xFFD97706),
             ),
           ),
-          const SizedBox(height: 24),
-          // Title
+          const SizedBox(height: 20),
           Text(
-            'WHO WON THE TOSS?',
-            style: textTheme.displaySmall?.copyWith(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
+            'Who won the toss?',
+            style: textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: CricketSpiritColors.foreground,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Select the team and what they chose',
+            style: textTheme.bodySmall?.copyWith(
+              color: CricketSpiritColors.mutedForeground,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          // Team Selection
           Row(
             children: [
               Expanded(
@@ -446,11 +441,7 @@ class _StartMatchViewState extends State<StartMatchView> {
                   team: homeTeam,
                   subtitle: 'Home',
                   isSelected: _tossWinner == homeTeam,
-                  onTap: () {
-                    setState(() {
-                      _tossWinner = homeTeam;
-                    });
-                  },
+                  onTap: () => setState(() => _tossWinner = homeTeam),
                 ),
               ),
               const SizedBox(width: 12),
@@ -459,37 +450,27 @@ class _StartMatchViewState extends State<StartMatchView> {
                   team: awayTeam,
                   subtitle: 'Away',
                   isSelected: _tossWinner == awayTeam,
-                  onTap: () {
-                    setState(() {
-                      _tossWinner = awayTeam;
-                    });
-                  },
+                  onTap: () => setState(() => _tossWinner = awayTeam),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 24),
-          // Elected to?
           Text(
-            'Elected to?',
-            style: textTheme.titleMedium?.copyWith(
-              color: CricketSpiritColors.foreground,
+            'Elected to',
+            style: textTheme.bodyMedium?.copyWith(
+              color: CricketSpiritColors.mutedForeground,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 12),
-          // Bat/Bowl Selection
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: _buildElectionButton(
                   label: 'Bat',
                   isSelected: _electedTo == 'Bat',
-                  onTap: () {
-                    setState(() {
-                      _electedTo = 'Bat';
-                    });
-                  },
+                  onTap: () => setState(() => _electedTo = 'Bat'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -497,26 +478,17 @@ class _StartMatchViewState extends State<StartMatchView> {
                 child: _buildElectionButton(
                   label: 'Bowl',
                   isSelected: _electedTo == 'Bowl',
-                  onTap: () {
-                    setState(() {
-                      _electedTo = 'Bowl';
-                    });
-                  },
+                  onTap: () => setState(() => _electedTo = 'Bowl'),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 32),
-          // Navigation Buttons
+          const SizedBox(height: 28),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      _currentStep = 0;
-                    });
-                  },
+                  onPressed: () => setState(() => _currentStep = 0),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -527,22 +499,18 @@ class _StartMatchViewState extends State<StartMatchView> {
               Expanded(
                 flex: 2,
                 child: ElevatedButton(
-                  onPressed: _tossWinner != null && _electedTo != null
-                      ? () {
-                          setState(() {
-                            _currentStep = 2;
-                          });
-                        }
+                  onPressed: _canProceedToss
+                      ? () => setState(() => _currentStep = 2)
                       : null,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Next: Players'),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward, size: 18),
+                      Text('Next: Players'),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward, size: 18),
                     ],
                   ),
                 ),
@@ -557,6 +525,10 @@ class _StartMatchViewState extends State<StartMatchView> {
   // Step 3: Players
   Widget _buildPlayersStep() {
     final textTheme = Theme.of(context).textTheme;
+    final hasDuplicatePlayers = _striker != null &&
+        _nonStriker != null &&
+        _bowler != null &&
+        !_canProceedPlayers;
 
     return Container(
       decoration: BoxDecoration(
@@ -568,122 +540,97 @@ class _StartMatchViewState extends State<StartMatchView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Opening Batsmen Section
-          Row(
-            children: [
-              Icon(
-                Icons.people,
-                color: CricketSpiritColors.primary,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'OPENING BATSMEN',
-                style: textTheme.titleMedium?.copyWith(
-                  color: CricketSpiritColors.foreground,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Striker
           Text(
-            'STRIKER',
+            'Select opening batsmen and bowler',
             style: textTheme.bodySmall?.copyWith(
               color: CricketSpiritColors.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildSectionHeader(
+            icon: Icons.people,
+            label: 'Opening batsmen',
+            textTheme: textTheme,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Striker',
+            style: textTheme.bodyMedium?.copyWith(
+              color: CricketSpiritColors.mutedForeground,
               fontWeight: FontWeight.w600,
-              fontSize: 11,
-              letterSpacing: 0.5,
             ),
           ),
           const SizedBox(height: 8),
           _buildDropdown(
             value: _striker,
-            hint: 'Bilal Ahmed',
+            hint: 'Select striker',
             items: _players,
-            onChanged: (value) {
-              setState(() {
-                _striker = value;
-              });
-            },
+            onChanged: (value) => setState(() => _striker = value),
           ),
           const SizedBox(height: 16),
-          // Non-Striker
           Text(
-            'NON-STRIKER',
-            style: textTheme.bodySmall?.copyWith(
+            'Non-striker',
+            style: textTheme.bodyMedium?.copyWith(
               color: CricketSpiritColors.mutedForeground,
               fontWeight: FontWeight.w600,
-              fontSize: 11,
-              letterSpacing: 0.5,
             ),
           ),
           const SizedBox(height: 8),
           _buildDropdown(
             value: _nonStriker,
-            hint: 'Ali Khan',
+            hint: 'Select non-striker',
             items: _players,
-            onChanged: (value) {
-              setState(() {
-                _nonStriker = value;
-              });
-            },
+            onChanged: (value) => setState(() => _nonStriker = value),
           ),
-          const SizedBox(height: 32),
-          // Opening Bowler Section
-          Row(
-            children: [
-              Icon(
-                Icons.sports_cricket,
-                color: Colors.red.shade400,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'OPENING BOWLER',
-                style: textTheme.titleMedium?.copyWith(
-                  color: CricketSpiritColors.foreground,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
+          const SizedBox(height: 24),
+          _buildSectionHeader(
+            icon: Icons.sports_cricket,
+            label: 'Opening bowler',
+            textTheme: textTheme,
           ),
           const SizedBox(height: 16),
-          // Bowler
           Text(
-            'BOWLER',
-            style: textTheme.bodySmall?.copyWith(
+            'Bowler',
+            style: textTheme.bodyMedium?.copyWith(
               color: CricketSpiritColors.mutedForeground,
               fontWeight: FontWeight.w600,
-              fontSize: 11,
-              letterSpacing: 0.5,
             ),
           ),
           const SizedBox(height: 8),
           _buildDropdown(
             value: _bowler,
-            hint: 'Steve Smith',
+            hint: 'Select bowler',
             items: _players,
-            onChanged: (value) {
-              setState(() {
-                _bowler = value;
-              });
-            },
+            onChanged: (value) => setState(() => _bowler = value),
           ),
-          const SizedBox(height: 32),
-          // Navigation Buttons
+          if (hasDuplicatePlayers) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 16,
+                  color: CricketSpiritColors.error,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Striker, non-striker, and bowler must be different',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: CricketSpiritColors.error,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 28),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      _currentStep = 1;
-                    });
-                  },
+                  onPressed: () => setState(() => _currentStep = 1),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -694,23 +641,18 @@ class _StartMatchViewState extends State<StartMatchView> {
               Expanded(
                 flex: 2,
                 child: ElevatedButton(
-                  onPressed: _striker != null &&
-                          _nonStriker != null &&
-                          _bowler != null
-                      ? () {
-                          // Navigate to live scoring screen
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Match started successfully!'),
-                              backgroundColor: CricketSpiritColors.primary,
-                            ),
-                          );
-                        }
-                      : null,
+                  onPressed: _canProceedPlayers ? _onStartMatch : null,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text('Start Match'),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.play_arrow, size: 20),
+                      SizedBox(width: 8),
+                      Text('Start Match'),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -718,6 +660,17 @@ class _StartMatchViewState extends State<StartMatchView> {
         ],
       ),
     );
+  }
+
+  void _onStartMatch() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Match started successfully!'),
+        backgroundColor: CricketSpiritColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    // TODO: Navigate to live scoring screen
   }
 
   Widget _buildDropdown({

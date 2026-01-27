@@ -62,7 +62,15 @@ class AppDrawer extends StatelessWidget {
               ),
             ),
           ),
-          
+
+          _buildDrawerItem(
+            context,
+            icon: Icons.home_outlined,
+            title: 'Home',
+            route: '/home',
+          ),
+          const Divider(),
+
           // Players Section
           _buildSectionHeader(context, 'PLAYERS'),
           if (!isPlayerRole)
@@ -115,6 +123,18 @@ class AppDrawer extends StatelessWidget {
 
           // Matches Section
           _buildSectionHeader(context, 'MATCHES'),
+          _buildDrawerItem(
+            context,
+            icon: Icons.add_circle_outline,
+            title: 'Create Match',
+            route: '/create-match',
+          ),
+          _buildDrawerItem(
+            context,
+            icon: Icons.assignment_outlined,
+            title: 'My Matches',
+            route: '/my-matches',
+          ),
           _buildDrawerItem(
             context,
             icon: Icons.sports_cricket_outlined,

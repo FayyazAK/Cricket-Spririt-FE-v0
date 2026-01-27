@@ -778,7 +778,69 @@ class ApiService {
     }
   }
 
+  // ==================== USER APIs ====================
+
+  /// Search users by email (no auth required)
+  /// GET /users?email=<searchText>
+  Future<Map<String, dynamic>> searchUsersByEmail(String email) async {
+    final uri = Uri.parse('$baseUrl/users').replace(
+      queryParameters: {'email': email.trim()},
+    );
+    final response = await http.get(
+      uri,
+      headers: _getHeaders(includeAuth: false),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
   // ==================== TEAM APIs ====================
+
+  /// Get all teams
+  /// GET /teams
+  Future<Map<String, dynamic>> getAllTeams({
+    String? search,
+    String? clubId,
+    int? page,
+    int? limit,
+  }) async {
+    final queryParams = <String, String>{};
+    if (search != null && search.trim().isNotEmpty) {
+      queryParams['search'] = search.trim();
+    }
+    if (clubId != null && clubId.trim().isNotEmpty) {
+      queryParams['clubId'] = clubId.trim();
+    }
+    if (page != null) queryParams['page'] = page.toString();
+    if (limit != null) queryParams['limit'] = limit.toString();
+
+    final uri = Uri.parse('$baseUrl/teams').replace(queryParameters: queryParams);
+    final response = await http.get(uri, headers: _getHeaders());
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return getAllTeams(
+          search: search,
+          clubId: clubId,
+          page: page,
+          limit: limit,
+        );
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
 
   /// Create a new team for a club
   /// POST /teams
@@ -813,6 +875,308 @@ class ApiService {
           clubId: clubId,
           playerIds: playerIds,
         );
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  // ==================== MATCH APIs ====================
+
+  /// Create match
+  /// POST /matches
+  Future<Map<String, dynamic>> createMatch({
+    String? tournamentId,
+    String? scorerId,
+    required String team1Id,
+    required String team2Id,
+    required int overs,
+    required String ballType,
+    required String format,
+    int? customOvers,
+    DateTime? scheduledDate,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/matches'),
+      headers: _getHeaders(),
+      body: jsonEncode({
+        if (tournamentId != null) 'tournamentId': tournamentId,
+        if (scorerId != null) 'scorerId': scorerId,
+        'team1Id': team1Id,
+        'team2Id': team2Id,
+        'overs': overs,
+        'ballType': ballType,
+        'format': format,
+        if (customOvers != null) 'customOvers': customOvers,
+        if (scheduledDate != null)
+          'scheduledDate': scheduledDate.toIso8601String(),
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return createMatch(
+          tournamentId: tournamentId,
+          scorerId: scorerId,
+          team1Id: team1Id,
+          team2Id: team2Id,
+          overs: overs,
+          ballType: ballType,
+          format: format,
+          customOvers: customOvers,
+          scheduledDate: scheduledDate,
+        );
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Get matches (includes created matches)
+  /// GET /matches
+  Future<Map<String, dynamic>> getMatches({String? tournamentId}) async {
+    final queryParams = <String, String>{};
+    if (tournamentId != null && tournamentId.trim().isNotEmpty) {
+      queryParams['tournamentId'] = tournamentId.trim();
+    }
+    final uri = Uri.parse('$baseUrl/matches')
+        .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+    final response = await http.get(uri, headers: _getHeaders());
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return getMatches(tournamentId: tournamentId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Get my matches overview
+  /// GET /matches/my-matches
+  Future<Map<String, dynamic>> getMyMatches() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/matches/my-matches'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return getMyMatches();
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Assign or reassign scorer to a match
+  /// POST /matches/:id/scorer
+  Future<Map<String, dynamic>> assignScorer({
+    required String matchId,
+    required String scorerId,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/matches/$matchId/scorer'),
+      headers: _getHeaders(),
+      body: jsonEncode({'scorerId': scorerId}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return assignScorer(matchId: matchId, scorerId: scorerId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Get scorer invitations
+  /// GET /matches/scorer-invitations
+  Future<Map<String, dynamic>> getScorerInvitations() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/matches/scorer-invitations'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return getScorerInvitations();
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Get team invitations (club owners)
+  /// GET /matches/team-invitations
+  Future<Map<String, dynamic>> getTeamInvitations() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/matches/team-invitations'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return getTeamInvitations();
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Accept scorer invitation
+  /// POST /matches/scorer-invitations/:invitationId/accept
+  Future<Map<String, dynamic>> acceptScorerInvitation(
+    String invitationId,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/matches/scorer-invitations/$invitationId/accept'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return acceptScorerInvitation(invitationId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Reject scorer invitation
+  /// POST /matches/scorer-invitations/:invitationId/reject
+  Future<Map<String, dynamic>> rejectScorerInvitation(
+    String invitationId,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/matches/scorer-invitations/$invitationId/reject'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return rejectScorerInvitation(invitationId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Accept team invitation
+  /// POST /matches/invitations/:invitationId/accept
+  Future<Map<String, dynamic>> acceptTeamInvitation(
+    String invitationId,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/matches/invitations/$invitationId/accept'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return acceptTeamInvitation(invitationId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Reject team invitation
+  /// POST /matches/invitations/:invitationId/reject
+  Future<Map<String, dynamic>> rejectTeamInvitation(
+    String invitationId,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/matches/invitations/$invitationId/reject'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return rejectTeamInvitation(invitationId);
+      } catch (e) {
+        throw Exception('Session expired. Please login again.');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(_formatErrorMessage(error));
+    }
+  }
+
+  /// Start match (scorer gated)
+  /// POST /matches/:id/start
+  Future<Map<String, dynamic>> startMatch(String matchId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/matches/$matchId/start'),
+      headers: _getHeaders(),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else if (response.statusCode == 401) {
+      try {
+        await refreshAccessToken();
+        return startMatch(matchId);
       } catch (e) {
         throw Exception('Session expired. Please login again.');
       }
